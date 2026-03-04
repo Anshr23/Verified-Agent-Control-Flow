@@ -19,7 +19,9 @@ def mock_plan_llm(user_message: str) -> str:
         return "Plan: verify order, then issue refund."
     if "delete" in user_message.lower():
         return "Plan: confirm identity, then delete account."
-    return "Plan: look up requested info."
+    if "record" in user_message.lower() or "history" in user_message.lower():
+        return "Plan: look up requested info."
+    return "Plan: unclear, request is ambiguous."   # <-- new fallback
 
 
 def mock_tool_select_llm(plan_summary: str) -> ToolCall | None:
