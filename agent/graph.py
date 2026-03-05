@@ -62,7 +62,16 @@ def clarify_node(state: AgentState) -> dict:
     # LLM keeps returning an ambiguous plan, this loop never exits.
     # -> NuSMV liveness property L1 ("every conversation eventually
     #    reaches a terminal state") will fail on this model.
-    return {"phase": AgentPhase.PLAN, "clarify_count": state.clarify_count + 1}
+    # return {"phase": AgentPhase.PLAN, "clarify_count": state.clarify_count + 1}
+    new_count = state.clarify_count + 1
+    if new_count >= state.max_clarify:
+        # give up gracefully instead of looping forever
+        return {
+            "phase": AgentPhase.RESPOND,
+            "clarify_count": new_count,
+            "final_response": "I wasn't able to understand the request after a few tries — could you rephrase or contact support directly?",
+        }
+    return {"phase": AgentPhase.PLAN, "clarify_count": new_count}
 
 
 def human_confirm_node(state: AgentState) -> dict:
@@ -78,6 +87,8 @@ def execute_node(state: AgentState) -> dict:
 
 
 def respond_node(state: AgentState) -> dict:
+    if state.final_response:
+        return {"phase": AgentPhase.RESPOND}  # already set by clarify_node, keep it
     return {"phase": AgentPhase.RESPOND, "final_response": "Done."}
 
 
@@ -93,6 +104,9 @@ def route_from_tool_select(state: AgentState) -> str:
 
 def route_from_clarify(state: AgentState) -> str:
     # FLAW: no check against state.max_clarify here.
+    # return "plan"
+    if state.clarify_count >= state.max_clarify:
+        return "respond"
     return "plan"
 
 
@@ -122,8 +136,38 @@ def build_graph_v1() -> StateGraph:
 
     return g
 
+# better than prev v1 it was buggy on purpose
+def build_graph_v2() -> StateGraph:
+    g = StateGraph(AgentState)
 
-if __name__ == "__main__":
-    graph = build_graph_v1().compile()
-    result = graph.invoke(AgentState(user_message="I want a refund"))
-    print(result)
+    g.add_node("intake", intake_node)
+    g.add_node("plan", plan_node)
+    g.add_node("tool_select", tool_select_node)
+    g.add_node("clarify", clarify_node)
+    g.add_node("human_confirm", human_confirm_node)
+    g.add_node("execute", execute_node)
+    g.add_node("respond", respond_node)
+
+    g.set_entry_point("intake")
+    g.add_edge("intake", "plan")
+    g.add_edge("plan", "tool_select")
+    g.add_conditional_edges("tool_select", route_from_tool_select, {
+        "clarify": "clarify",
+        "human_confirm": "human_confirm",
+        "execute": "execute",
+    })
+    g.add_conditional_edges("clarify", route_from_clarify, {
+        "plan": "plan",
+        "respond": "respond",
+    })
+    g.add_edge("human_confirm", "execute")
+    g.add_edge("execute", "respond")
+    g.add_edge("respond", END)
+
+    return g
+
+
+# if __name__ == "__main__":
+#     graph = build_graph_v1().compile()
+#     result = graph.invoke(AgentState(user_message="I want a refund"))
+#     print(result)
