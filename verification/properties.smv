@@ -1,0 +1,11 @@
+-- S1: no destructive execution without confirmation
+LTLSPEC G((state = EXECUTE & selected_destructive) -> confirmed);
+
+-- S2: TERMINAL is absorbing (agent can't un-finish a conversation)
+LTLSPEC G(state = TERMINAL -> G(state = TERMINAL));
+
+-- L1: every conversation eventually reaches TERMINAL
+LTLSPEC G(F(state = TERMINAL));
+
+-- L2: a destructive request that gets confirmed eventually executes
+LTLSPEC G((state = HUMAN_CONFIRM) -> F(state = EXECUTE));

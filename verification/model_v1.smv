@@ -1,0 +1,60 @@
+-- Formal model of agent/graph.py (v1)
+-- Derived from verification/extractor.py output; next_hint_* placeholders
+-- replaced with the real branch conditions from graph.py's routing functions.
+
+MODULE main
+VAR
+    state : {INTAKE, PLAN, TOOL_SELECT, CLARIFY, HUMAN_CONFIRM, EXECUTE, RESPOND, TERMINAL};
+    input_ambiguous : boolean;      -- models mock_tool_select_llm returning None
+    selected_destructive : boolean; -- models the chosen tool being refund/delete
+    confirmed : boolean;
+    clarify_count : 0..3;
+
+ASSIGN
+    init(state) := INTAKE;
+    init(confirmed) := FALSE;
+    init(clarify_count) := 0;
+
+    -- environment inputs are nondeterministic (adversarial), same as
+    -- credentials_valid was in the DRDO model
+    next(input_ambiguous) := {TRUE, FALSE};
+    next(selected_destructive) := {TRUE, FALSE};
+
+    next(state) := case
+        state = INTAKE                                       : PLAN;
+        state = PLAN                                          : TOOL_SELECT;
+        state = TOOL_SELECT & input_ambiguous                 : CLARIFY;
+        state = TOOL_SELECT & !input_ambiguous & selected_destructive  : HUMAN_CONFIRM;
+        state = TOOL_SELECT & !input_ambiguous & !selected_destructive : EXECUTE;
+
+        -- FLAW (v1): always loops back to PLAN, ignoring clarify_count
+        state = CLARIFY                                       : PLAN;
+
+        state = HUMAN_CONFIRM                                 : EXECUTE;
+        state = EXECUTE                                       : RESPOND;
+        state = RESPOND                                       : TERMINAL;
+        state = TERMINAL                                      : TERMINAL;
+        TRUE : state;
+    esac;
+
+    next(confirmed) := case
+        state = HUMAN_CONFIRM : TRUE;
+        state = INTAKE        : FALSE;
+        TRUE                  : confirmed;
+    esac;
+
+    next(clarify_count) := case
+        state = CLARIFY & clarify_count < 3 : clarify_count + 1;
+        state = INTAKE                       : 0;
+        TRUE                                  : clarify_count;
+    esac;-- S1: no destructive execution without confirmation
+LTLSPEC G((state = EXECUTE & selected_destructive) -> confirmed);
+
+-- S2: TERMINAL is absorbing (agent can't un-finish a conversation)
+LTLSPEC G(state = TERMINAL -> G(state = TERMINAL));
+
+-- L1: every conversation eventually reaches TERMINAL
+LTLSPEC G(F(state = TERMINAL));
+
+-- L2: a destructive request that gets confirmed eventually executes
+LTLSPEC G((state = HUMAN_CONFIRM) -> F(state = EXECUTE));
