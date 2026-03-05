@@ -1,0 +1,67 @@
+MODULE main
+VAR
+    state : {INTAKE, PLAN, TOOL_SELECT, CLARIFY, HUMAN_CONFIRM, EXECUTE, RESPOND, TERMINAL};
+    input_ambiguous : boolean;
+    selected_destructive : boolean;
+    confirmed : boolean;
+    clarify_count : 0..3;
+
+ASSIGN
+    init(state) := INTAKE;
+    init(confirmed) := FALSE;
+    init(clarify_count) := 0;
+    init(input_ambiguous) := FALSE;
+    init(selected_destructive) := FALSE;
+
+    -- FIX 2: only re-decide these at the actual decision point (TOOL_SELECT);
+    -- hold their value at every other state instead of free-running every step.
+    next(input_ambiguous) := case
+        state = PLAN    : {TRUE, FALSE};
+        state = INTAKE  : FALSE;
+        TRUE            : input_ambiguous;
+    esac;
+
+    next(selected_destructive) := case
+        state = PLAN    : {TRUE, FALSE};
+        state = INTAKE  : FALSE;
+        TRUE            : selected_destructive;
+    esac;
+
+    next(state) := case
+        state = INTAKE                                                : PLAN;
+        state = PLAN                                                   : TOOL_SELECT;
+        state = TOOL_SELECT & input_ambiguous                          : CLARIFY;
+        state = TOOL_SELECT & !input_ambiguous & selected_destructive  : HUMAN_CONFIRM;
+        state = TOOL_SELECT & !input_ambiguous & !selected_destructive : EXECUTE;
+
+        -- FIX 1: give up gracefully after 3 clarifies instead of looping forever
+        state = CLARIFY & clarify_count < 3  : PLAN;
+        state = CLARIFY & clarify_count = 3  : RESPOND;
+
+        state = HUMAN_CONFIRM : EXECUTE;
+        state = EXECUTE       : RESPOND;
+        state = RESPOND       : TERMINAL;
+        state = TERMINAL      : TERMINAL;
+        TRUE : state;
+    esac;
+
+    next(confirmed) := case
+        state = HUMAN_CONFIRM : TRUE;
+        state = INTAKE        : FALSE;
+        TRUE                  : confirmed;
+    esac;
+
+    next(clarify_count) := case
+        state = CLARIFY & clarify_count < 3 : clarify_count + 1;
+        state = INTAKE                       : 0;
+        TRUE                                  : clarify_count;
+    esac;
+
+-- S1: no destructive execution without confirmation
+LTLSPEC G((state = EXECUTE & selected_destructive) -> confirmed);
+-- S2: TERMINAL is absorbing
+LTLSPEC G(state = TERMINAL -> G(state = TERMINAL));
+-- L1: every conversation eventually reaches TERMINAL
+LTLSPEC G(F(state = TERMINAL));
+-- L2: a confirmed destructive request eventually executes
+LTLSPEC G((state = HUMAN_CONFIRM) -> F(state = EXECUTE));
