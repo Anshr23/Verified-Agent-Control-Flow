@@ -36,8 +36,11 @@ def mock_tool_select_llm(plan_summary: str) -> ToolCall | None:
 
 # ---- nodes ----
 
+# in intake_node:
 def intake_node(state: AgentState) -> dict:
-    return {"phase": AgentPhase.PLAN}
+    from agent.guardrails import guard_intake
+    guarded = guard_intake(state)
+    return {"phase": AgentPhase.PLAN, "injection_flagged": guarded.injection_flagged}
 
 
 def plan_node(state: AgentState) -> dict:
@@ -76,7 +79,13 @@ def clarify_node(state: AgentState) -> dict:
 
 def human_confirm_node(state: AgentState) -> dict:
     # Simulates a human approving. In v1, rejection isn't modeled at all
-    # (always confirms) — acceptable for now, not the flaw we're testing.
+    # # (always confirms) — acceptable for now, not the flaw we're testing.
+    # return {"phase": AgentPhase.EXECUTE, "confirmed": True}
+    
+    # in human_confirm_node:
+    from agent.guardrails import guard_confirmation
+    if not guard_confirmation(state, requested_by_node="human_confirm_node"):
+        return {"phase": AgentPhase.RESPOND, "final_response": "Confirmation could not be verified."}
     return {"phase": AgentPhase.EXECUTE, "confirmed": True}
 
 
