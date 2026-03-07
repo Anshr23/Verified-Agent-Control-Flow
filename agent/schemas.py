@@ -6,7 +6,7 @@ what the extractor (Step 4) will introspect to help build the .smv model.
 
 from enum import Enum
 from typing import Optional, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class AgentPhase(str, Enum):
@@ -40,6 +40,7 @@ class ToolCall(BaseModel):
 
 
 class AgentState(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
     """
     The full state object passed between LangGraph nodes.
     `phase` is the FSM control variable — the thing the extractor
@@ -56,8 +57,8 @@ class AgentState(BaseModel):
     final_response: Optional[str] = None
     injection_flagged: bool = False
 
-    class Config:
-        use_enum_values = True
+    # class Config:
+    #     use_enum_values = True
 
 
 class NodeResult(BaseModel):
