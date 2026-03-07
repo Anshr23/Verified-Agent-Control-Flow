@@ -81,7 +81,7 @@ def human_confirm_node(state: AgentState) -> dict:
     # Simulates a human approving. In v1, rejection isn't modeled at all
     # # (always confirms) — acceptable for now, not the flaw we're testing.
     # return {"phase": AgentPhase.EXECUTE, "confirmed": True}
-    
+
     # in human_confirm_node:
     from agent.guardrails import guard_confirmation
     if not guard_confirmation(state, requested_by_node="human_confirm_node"):
@@ -111,9 +111,19 @@ def route_from_tool_select(state: AgentState) -> str:
     return "execute"
 
 
-def route_from_clarify(state: AgentState) -> str:
-    # FLAW: no check against state.max_clarify here.
-    # return "plan"
+# def route_from_clarify(state: AgentState) -> str:
+#     # FLAW: no check against state.max_clarify here.
+#     # return "plan"
+#     if state.clarify_count >= state.max_clarify:
+#         return "respond"
+#     return "plan"
+
+def route_from_clarify_v1(state: AgentState) -> str:
+    # ORIGINAL BUG, preserved on purpose: always loops back to plan.
+    return "plan"
+
+
+def route_from_clarify_v2(state: AgentState) -> str:
     if state.clarify_count >= state.max_clarify:
         return "respond"
     return "plan"
@@ -138,7 +148,7 @@ def build_graph_v1() -> StateGraph:
         "human_confirm": "human_confirm",
         "execute": "execute",
     })
-    g.add_conditional_edges("clarify", route_from_clarify, {"plan": "plan"})
+    g.add_conditional_edges("clarify", route_from_clarify_v1, {"plan": "plan"})
     g.add_edge("human_confirm", "execute")
     g.add_edge("execute", "respond")
     g.add_edge("respond", END)
@@ -165,7 +175,7 @@ def build_graph_v2() -> StateGraph:
         "human_confirm": "human_confirm",
         "execute": "execute",
     })
-    g.add_conditional_edges("clarify", route_from_clarify, {
+    g.add_conditional_edges("clarify", route_from_clarify_v2, {
         "plan": "plan",
         "respond": "respond",
     })
