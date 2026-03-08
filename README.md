@@ -2,7 +2,7 @@
 
 **Stack:** LangGraph, LangChain, Pydantic, Guardrails, Langfuse, FastAPI, pytest, NuSMV 2.6.x
 **Method:** Symbolic Model Checking (BDD-based LTL) applied to an AI agent's control-flow graph
-**Companion project:** [Formal Verification of a Finite-State Login Authentication Protocol](link-to-drdo-repo) — same methodology (NuSMV/LTL), applied here to a production AI system instead of an authentication FSM.
+**Companion project:** [Formal Verification of a Finite-State Login Authentication Protocol](https://github.com/Anshr23/formal-auth-protocol-verification) — same methodology (NuSMV/LTL), applied here to a production AI system instead of an authentication FSM.
 
 ---
 
@@ -18,28 +18,30 @@ All claims are strictly limited to the formal model. No real-world security guar
 
 ## Repository Structure
 
+```
 verified-agent-control-flow/
 ├── agent/
-│ ├── schemas.py # Pydantic state, tool, and phase definitions
-│ ├── graph.py # LangGraph definitions: v1 (buggy) and v2 (fixed)
-│ └── guardrails.py # injection scanning + confirmation-source guard
+│   ├── schemas.py              # Pydantic state, tool, and phase definitions
+│   ├── graph.py                 # LangGraph definitions: v1 (buggy) and v2 (fixed)
+│   └── guardrails.py            # injection scanning + confirmation-source guard
 ├── verification/
-│ ├── extractor.py # introspects graph.py -> generates .smv skeleton
-│ ├── model_v1.smv # first model (L1 liveness fails)
-│ ├── model_v2.smv # partial fix (S1 safety fails - modeling artifact)
-│ ├── model_v3.smv # refined model (all 4 properties pass)
-│ ├── model_broken_reference.smv # deliberately-reintroduced bug, used to validate the CI gate itself
-│ └── properties.smv # LTL specifications (S1, S2, L1, L2)
+│   ├── extractor.py             # introspects graph.py -> generates .smv skeleton
+│   ├── model_v1.smv             # first model (L1 liveness fails)
+│   ├── model_v2.smv             # partial fix (S1 safety fails - modeling artifact)
+│   ├── model_v3.smv             # refined model (all 4 properties pass)
+│   ├── model_broken_reference.smv  # deliberately-reintroduced bug, used to validate the CI gate itself
+│   └── properties.smv           # LTL specifications (S1, S2, L1, L2)
 ├── api/
-│ └── app.py # FastAPI: /chat, /verification, /health
+│   └── app.py                   # FastAPI: /chat, /verification, /health
 ├── dashboard/
-│ └── index.html # live results view: spec status + agent demo
+│   └── index.html                # live results view: spec status + agent demo
 ├── tests/
-│ ├── test_nodes.py # unit tests for node/routing logic
-│ └── test_verification_gate.py # CI gate: runs NuSMV, fails build on any false spec
+│   ├── test_nodes.py             # unit tests for node/routing logic
+│   └── test_verification_gate.py # CI gate: runs NuSMV, fails build on any false spec
 ├── pytest.ini
 ├── requirements.txt
 └── README.md
+```
 
 ---
 
