@@ -14,6 +14,8 @@ import re
 import pytest
 
 MODEL_PATH = "verification/model_v3.smv"
+# MODEL_PATH = "verification/model_broken.smv"
+
 NUSMV_BIN = shutil.which("NuSMV") or shutil.which("nusmv")
 
 
